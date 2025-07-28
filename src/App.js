@@ -25,6 +25,21 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
+// Root Route Component
+const RootRoute = () => {
+  const { isAuthenticated, loading } = useAuth()
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+  
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+}
+
 // Main Layout Component
 const MainLayout = ({ children }) => {
   const { currentRestaurant } = useAuth()
@@ -59,9 +74,10 @@ const App = () => {
             }}
           />
           <Routes>
+            <Route path="/" element={<RootRoute />} />
             <Route path="/login" element={<LoginForm />} />
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <MainLayout>

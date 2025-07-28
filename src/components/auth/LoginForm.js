@@ -21,14 +21,35 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (values, { setSubmitting, setErrors }) => {
+    console.log('Login attempt with:', values)
     setIsLoading(true)
-    const result = await signIn(values.email, values.password)
-    setIsLoading(false)
-    
-    if (!result.success) {
-      setErrors({ password: result.error })
+    try {
+      const result = await signIn(values.email, values.password)
+      console.log('Sign in result:', result)
+      setIsLoading(false)
+      
+      if (!result.success) {
+        setErrors({ password: result.error })
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setErrors({ password: 'Login failed. Please try again.' })
+      setIsLoading(false)
     }
     setSubmitting(false)
+  }
+
+  const handleDemoLogin = async () => {
+    console.log('Demo login attempt')
+    setIsLoading(true)
+    try {
+      const result = await signIn('demo@example.com', 'demo123')
+      console.log('Demo login result:', result)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Demo login error:', error)
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -99,6 +120,26 @@ const LoginForm = () => {
               </Form>
             )}
           </Formik>
+
+          {/* Demo Login Button */}
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or try demo</span>
+              </div>
+            </div>
+            <Button
+              onClick={handleDemoLogin}
+              variant="outline"
+              className="w-full mt-4"
+              loading={isLoading}
+            >
+              Demo Login
+            </Button>
+          </div>
         </div>
       </div>
     </div>
