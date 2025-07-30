@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Formik, Form, Field } from 'formik'
 import * as Yup from 'yup'
 import { supabaseHelpers } from '../../lib/supabase'
@@ -21,14 +21,13 @@ const ProductManagement = () => {
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [combos, setCombos] = useState([])
+  const [showComboForm, setShowComboForm] = useState(false)
+  const [comboProducts, setComboProducts] = useState([])
+  const [comboName, setComboName] = useState('')
+  const [comboPrice, setComboPrice] = useState('')
 
-  useEffect(() => {
-    if (currentRestaurant) {
-      loadProducts()
-    }
-  }, [currentRestaurant])
-
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       const { data, error } = await supabaseHelpers.getProducts(currentRestaurant.id)
       if (error) throw error
@@ -39,7 +38,23 @@ const ProductManagement = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentRestaurant])
+
+  const loadCombos = useCallback(async () => {
+    const { data, error } = await supabaseHelpers.getCombos(currentRestaurant.id)
+    if (error) toast.error('Failed to load combos')
+    setCombos(data || [])
+  }, [currentRestaurant])
+
+  useEffect(() => {
+    if (currentRestaurant) {
+      loadProducts()
+    }
+  }, [currentRestaurant, loadProducts])
+
+  useEffect(() => {
+    if (currentRestaurant) loadCombos()
+  }, [currentRestaurant, loadCombos])
 
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
@@ -70,6 +85,27 @@ const ProductManagement = () => {
       toast.error('Failed to save product')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleComboSubmit = async () => {
+    const makingCost = comboProducts.reduce((sum, p) => sum + parseFloat(p.making_cost), 0)
+    const comboData = {
+      restaurant_id: currentRestaurant.id,
+      name: comboName,
+      product_ids: comboProducts.map(p => p.id),
+      price: parseFloat(comboPrice),
+      making_cost: makingCost,
+    }
+    const { error } = await supabaseHelpers.addCombo(comboData)
+    if (error) toast.error('Failed to add combo')
+    else {
+      toast.success('Combo added!')
+      setShowComboForm(false)
+      setComboProducts([])
+      setComboName('')
+      setComboPrice('')
+      loadCombos()
     }
   }
 
@@ -288,6 +324,59 @@ const ProductManagement = () => {
             </table>
           </div>
         )}
+      </Card>
+
+      <Button onClick={() => setShowComboForm(true)}>Add Combo</Button>
+      {showComboForm && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Combo</h3>
+          <Input value={comboName} onChange={e => setComboName(e.target.value)} placeholder="Combo Name" />
+          <Input value={comboPrice} onChange={e => setComboPrice(e.target.value)} placeholder="Combo Price" type="number" />
+          <div className="mb-2">Select Products:</div>
+          <div className="grid grid-cols-2 gap-2">
+            {products.map(p => (
+              <label key={p.id} className="flex items-center space-x-2">
+                <input type="checkbox" checked={comboProducts.includes(p)} onChange={e => {
+                  if (e.target.checked) setComboProducts([...comboProducts, p])
+                  else setComboProducts(comboProducts.filter(cp => cp.id !== p.id))
+                }} />
+                <span>{p.name} (${p.price})</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-2">Making Cost: ${comboProducts.reduce((sum, p) => sum + parseFloat(p.making_cost), 0)}</div>
+          <div className="flex space-x-2 mt-2">
+            <Button onClick={handleComboSubmit}>Save Combo</Button>
+            <Button variant="outline" onClick={() => setShowComboForm(false)}>Cancel</Button>
+          </div>
+        </Card>
+      )}
+      <Card>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Combos</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Making Cost</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {combos.map(combo => (
+                <tr key={combo.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">{combo.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{combo.product_ids.join(', ')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">${combo.price}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">${combo.making_cost}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">${(combo.price - combo.making_cost).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   )

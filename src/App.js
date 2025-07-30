@@ -9,6 +9,7 @@ import Dashboard from './components/dashboard/Dashboard'
 import OrderEntry from './components/orders/OrderEntry'
 import ProductManagement from './components/products/ProductManagement'
 import './App.css'
+import OffersManagement from './components/offers/OffersManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -111,10 +112,7 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <MainLayout>
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold text-gray-900">Offers Management</h2>
-                      <p className="text-gray-600 mt-2">Coming soon...</p>
-                    </div>
+                    <OffersManagement />
                   </MainLayout>
                 </ProtectedRoute>
               }
@@ -165,4 +163,4 @@ const App = () => {
   )
 }
 
-export default App 
+export default App

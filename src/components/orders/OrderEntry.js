@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Formik, Form, Field } from 'formik'
 import * as Yup from 'yup'
 import { supabaseHelpers } from '../../lib/supabase'
@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Card from '../ui/Card'
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, CreditCard } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const checkoutSchema = Yup.object().shape({
@@ -25,14 +25,10 @@ const OrderEntry = () => {
   const [selectedOffers, setSelectedOffers] = useState([])
   const [showCheckout, setShowCheckout] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [drafts, setDrafts] = useState([])
+  const [quickDiscount, setQuickDiscount] = useState(false)
 
-  useEffect(() => {
-    if (currentRestaurant) {
-      loadMenuData()
-    }
-  }, [currentRestaurant])
-
-  const loadMenuData = async () => {
+  const loadMenuData = useCallback(async () => {
     try {
       const [productsData, combosData, offersData] = await Promise.all([
         supabaseHelpers.getProducts(currentRestaurant.id),
@@ -47,7 +43,54 @@ const OrderEntry = () => {
       console.error('Error loading menu data:', error)
       toast.error('Failed to load menu data')
     }
+  }, [currentRestaurant])
+
+  useEffect(() => {
+    if (currentRestaurant) {
+      loadMenuData()
+    }
+  }, [currentRestaurant, loadMenuData])
+
+  // Load drafts on mount
+  useEffect(() => {
+    const loadDrafts = async () => {
+      const { data } = await supabaseHelpers.getDraftOrders(currentRestaurant.id)
+      setDrafts(data || [])
+    }
+    if (currentRestaurant) loadDrafts()
+  }, [currentRestaurant])
+
+  // Save draft
+  const saveDraft = async () => {
+    const draft = {
+      restaurant_id: currentRestaurant.id,
+      cart,
+      selectedOffers,
+      quickDiscount,
+      created_at: new Date().toISOString(),
+    }
+    await supabaseHelpers.createDraftOrder(draft)
+    toast.success('Draft saved!')
   }
+
+  // Load draft into cart
+  const loadDraft = (draft) => {
+    setCart(draft.cart)
+    setSelectedOffers(draft.selectedOffers)
+    setQuickDiscount(draft.quickDiscount)
+  }
+
+  // Remove draft
+  const removeDraft = async (id) => {
+    await supabaseHelpers.deleteDraftOrder(id)
+    setDrafts(drafts.filter(d => d.id !== id))
+    toast.success('Draft deleted!')
+  }
+
+  // Real-time sync stub
+  useEffect(() => {
+    // TODO: Implement WebSocket/Firebase for real-time order sync
+  }, [])
 
   const filteredItems = [...products, ...combos].filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -89,8 +132,10 @@ const OrderEntry = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0)
   }
 
+  // 10% quick discount
   const calculateDiscount = () => {
     let totalDiscount = 0
+    if (quickDiscount) totalDiscount += calculateSubtotal() * 0.1
     selectedOffers.forEach(offerId => {
       const offer = offers.find(o => o.id === offerId)
       if (offer) {
@@ -126,7 +171,7 @@ const OrderEntry = () => {
         }))
       }
 
-      const { data: sale, error } = await supabaseHelpers.createSale(saleData)
+      const { error } = await supabaseHelpers.createSale(saleData)
       
       if (error) throw error
 
@@ -291,6 +336,28 @@ const OrderEntry = () => {
               </div>
             )}
           </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Draft Orders</h3>
+            <div className="space-y-2">
+              {drafts.map(draft => (
+                <div key={draft.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <span>Draft {draft.id.slice(-4)}</span>
+                  <div className="space-x-2">
+                    <Button size="sm" onClick={() => loadDraft(draft)}>Load</Button>
+                    <Button size="sm" variant="danger" onClick={() => removeDraft(draft.id)}>Delete</Button>
+                  </div>
+                </div>
+              ))}
+              <Button onClick={saveDraft} disabled={cart.length === 0}>Save as Draft</Button>
+            </div>
+          </Card>
+
+          {/* Quick Discount */}
+          <label className="flex items-center space-x-2 mt-2">
+            <input type="checkbox" checked={quickDiscount} onChange={e => setQuickDiscount(e.target.checked)} />
+            <span>Apply 10% Quick Discount</span>
+          </label>
         </div>
       </div>
 

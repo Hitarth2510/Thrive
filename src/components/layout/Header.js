@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import Button from '../ui/Button'
-import { LogOut, User, Settings } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 
 const Header = ({ currentRestaurant }) => {
   const { user, signOut } = useAuth()
